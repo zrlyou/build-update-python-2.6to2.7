@@ -1,0 +1,55 @@
+#!/bin/bash
+#author:zhangrulun
+#date:2016-01-09
+
+# package name
+PACKAGE_NAME="Python-2.7.13.tgz"
+# package url
+PACKAGE_URL="https://www.python.org/ftp/python/2.7.13/Python-2.7.13.tgz"
+# workpath
+WORK_PATH="/home/tools"
+
+# Install environment
+echo "Install environment..."
+yum -y install gcc gcc-c++ make readline-devel wget
+if [ $? -ne 0 ]
+then
+	echo "Install environment is failed! Error code: $?"
+	exit 1
+fi
+
+if [ ! -d "${WORK_PATH}" ]
+then
+	mkdir -p /home/tools
+fi
+
+cd "${WORK_PATH}"
+echo "Download package..."
+wget ${PACKAGE_URL}
+if [ $? -ne 0 ]
+then
+	echo "Download ${PACKAGE_URL} is failed! Error code: $?"
+	exit 1
+fi
+
+sleep 2
+
+echo "Unzip file"
+tar -zvxf ${PACKAGE_NAME}
+cd Python-2.7.13
+echo "Install..."
+./configure \
+--prefix=/usr/local/python27 \
+--enable-dynamic
+
+make && make install
+echo "Create link file"
+ln -fs /usr/local/python27/bin/python2.7 /usr/bin/python
+echo "Change yum file"
+sed -i 's/\#!\/usr\/bin\/python/\#!\/usr\/bin\/python2.6/g' /usr/bin/yum
+
+echo "Set environment value"
+echo "export PATH=\"\$PATH:/usr/local/python27/bin\"" >> /etc/profile
+source /etc/profile
+
+
