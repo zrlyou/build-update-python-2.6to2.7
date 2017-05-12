@@ -52,4 +52,14 @@ echo "Set environment value"
 echo "export PATH=\"\$PATH:/usr/local/python27/bin\"" >> /etc/profile
 source /etc/profile
 
+cd "${WORK_PATH}"
+echo "Install pip..."
+wget https://bootstrap.pypa.io/get-pip.py
+if [ $? -eq 0 ]
+then
+        python get-pip.py
+else
+        echo "Install pip is failed! Can't download https://bootstrap.pypa.io/get-pip.py"
+        exit 1
+fi
 
