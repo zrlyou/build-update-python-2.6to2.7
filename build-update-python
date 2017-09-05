@@ -1,0 +1,129 @@
+#!/bin/bash
+# Author: 		zrlyou<zrlyouwin@gmail.com>
+# DateTime:		2017/09/04 10:54
+# FileName:		build-update-python
+# Description:	编译更新CentOs自带python的版本
+
+# base url
+BASE_URL="https://www.python.org/ftp/python"
+
+# suffix_name
+SUFFIX_NAME=".tgz"
+
+# workpath
+WORK_PATH="/tmp/python"
+if [ ! -d "${WORK_PATH}" ]; then
+	mkdir -p "${WORK_PATH}"
+fi
+
+# ensure environment
+function ensure_env()
+{
+	echo "Ensure environment..."
+
+	yum -y install gcc gcc-c++ make readline-devel zlib-devel wget
+	if [ $? -ne 0 ]; then
+		echo "Ensure environment is failed! Error code: $?"
+		exit 1
+	fi
+}
+
+# download package
+function download_package()
+{
+	local old_path="`pwd`"
+	local package_url="$1"
+	
+	cd "${WORK_PATH}"
+
+	echo "Download package..."
+	wget "${package_url}"
+	if [ $? -ne 0 ]; then
+		echo "Download '${package_url}' is failed! Error code: $?"
+		exit 1
+	fi
+	
+	cd "${old_path}"
+}
+
+# main function
+function main()
+{
+	read -p "Please input your verison[eg: 2.7.13]: " version
+	
+	local package_name="Python-${version}${SUFFIX_NAME}"
+	local build_path="Python-${version}"
+	local get_package_url="${BASE_URL}/${version}/${package_name}"
+	local short_version="${version%.*}"
+	local path_suffix="${short_version//./}"
+	local bin_file_name="python${short_version}"
+	local install_path="/usr/local/python${path_suffix}"
+	local bin_path="${install_path}/bin"
+
+	# ensure env
+	ensure_env
+
+	# download package
+	if [ ! -e "${WORK_PATH}/${package_name}" ]; then
+		download_package "${get_package_url}"
+	fi
+	
+	sleep 2
+
+	cd "${WORK_PATH}"
+	echo " Unzip file..."
+	tar -zvxf "${package_name}"
+	if [ $? -ne 0 ]; then
+		echo "Unzip ${package_name} is failed! Error code: $?"
+		exit 1
+	fi
+	
+	if [ -e "${WORK_PATH}/${build_path}" ]; then
+		echo "Start build and install..."
+		cd "${build_path}"
+		./configure \
+		--prefix=${install_path} \
+		--enable-dynamic
+		
+		make && make install
+		if [ $? -ne 0 ]; then
+			echo "Install is failed! Error code: $?"
+			exit 1
+		fi
+
+		echo "Create link file['/usr/bin/python'-->'${bin_path}/${bin_file_name}']"
+		ln -fs "${bin_path}/${bin_file_name}" /usr/bin/python
+		if [ $? -ne 0 ]; then
+			echo "Create link fils is failed! Error code: $?"
+			exit 1
+		fi
+	
+		echo "Change yum setting[/usr/bin/yum]"
+		sed -i 's/\#!\/usr\/bin\/python/\#!\/usr\/bin\/python2.6/g' /usr/bin/yum
+
+		echo "Set environment value"
+		echo "export PATH=\"\$PATH:${bin_path}\"" >> /etc/profile
+		source /etc/profile
+	else
+		echo "Can't not find the build path[${WORK_PATH}/${build_path}]"
+		exit 1
+	fi
+
+	cd "${WORK_PATH}"
+
+	rm -rf "${build_path}"
+
+	if [ "${short_version}" = "2.7" ]; then
+		echo "Install pip..."
+		wget https://bootstrap.pypa.io/get-pip.py
+		if [ $? -eq 0 ]
+		then
+		        python get-pip.py
+		else
+		        echo "Install pip is failed! Can't download https://bootstrap.pypa.io/get-pip.py"
+		        exit 1
+		fi
+	fi
+}
+
+main
